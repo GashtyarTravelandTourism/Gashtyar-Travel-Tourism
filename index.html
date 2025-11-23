@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>يلا_نسافر</title>
+    <title>يلا نسافر</title>
     <!-- Load Tailwind CSS for modern, responsive styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -246,18 +246,11 @@
                 </div>
                 
                 <button onclick="getDestinationSpotlight()" class="w-full mt-4 p-4 bg-slate-900 hover:bg-indigo-600 text-white font-bold rounded-2xl shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 transform active:scale-95" id="spotlight-button">
-                    ✨ جلب المعلومات والصور
+                    ✨ جلب المعلومات
                 </button>
             </div>
             
-            <!-- Image display area -->
-            <div id="image-output" class="rounded-3xl overflow-hidden shadow-xl border-4 border-slate-200 bg-slate-50 min-h-[200px] flex items-center justify-center relative">
-                <img id="destination-image" src="" alt="صورة الوجهة" class="w-full h-full object-cover absolute inset-0 opacity-0 transition-opacity duration-700">
-                <div id="image-placeholder" class="flex flex-col items-center text-slate-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    <span class="text-xs font-bold">الصورة ستظهر هنا</span>
-                </div>
-            </div>
+            <!-- Image display area REMOVED as requested -->
 
             <div id="spotlight-output" class="p-6 bg-white rounded-3xl shadow-sm border border-slate-100 text-slate-700 min-h-[100px]">
                 <p class="text-sm text-slate-400 text-center italic">الملخص...</p>
@@ -358,7 +351,7 @@
         }
 
         // --- API & Retry Utility ---
-        const API_KEY = ""; 
+        const apiKey = ""; 
         const API_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/';
         const MAX_RETRIES = 3;
         const INITIAL_DELAY = 1000;
@@ -397,17 +390,22 @@
             const model = 'gemini-2.5-flash-preview-09-2025';
             
             try {
-                const response = await fetchWithRetry(`${API_URL_BASE}${model}:generateContent?key=${API_KEY}`, {
+                const response = await fetchWithRetry(`${API_URL_BASE}${model}:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         contents: [{ parts: [{ text: `Translate this to ${targetLang}: ${input}` }] }]
                     })
                 });
-                const data = await response.json();
-                outputDiv.innerHTML = `<span class="text-slate-800 font-medium">${data.candidates[0].content.parts[0].text}</span>`;
+                
+                if (response.candidates && response.candidates[0] && response.candidates[0].content) {
+                    outputDiv.innerHTML = `<span class="text-slate-800 font-medium">${response.candidates[0].content.parts[0].text}</span>`;
+                } else {
+                    throw new Error("No translation returned");
+                }
             } catch (error) {
-                outputDiv.innerHTML = `<span class="text-red-500 text-sm">خطأ في الاتصال بالخدمة.</span>`;
+                console.error(error);
+                outputDiv.innerHTML = `<span class="text-red-500 text-sm">خطأ في الاتصال بالخدمة. يرجى المحاولة لاحقاً.</span>`;
             }
         }
 
@@ -416,8 +414,6 @@
             const destination = document.getElementById('destination-input').value.trim();
             const spotlightButton = document.getElementById('spotlight-button');
             const spotlightOutput = document.getElementById('spotlight-output');
-            const imageOutput = document.getElementById('destination-image');
-            const imagePlaceholder = document.getElementById('image-placeholder');
 
             if (!destination) {
                 showModal("خطأ في الإدخال", "الرجاء كتابة اسم المدينة أو الوجهة أولاً.", true);
@@ -427,15 +423,12 @@
             spotlightButton.disabled = true;
             spotlightButton.innerHTML = `<svg class="animate-spin h-5 w-5 mr-3 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> جاري البحث...`;
             spotlightOutput.innerHTML = `<p class="text-sm text-slate-400 text-center italic">جاري جلب الملخص...</p>`;
-            imagePlaceholder.classList.remove('hidden');
-            imageOutput.style.opacity = '0';
 
             const model = 'gemini-2.5-flash-preview-09-2025';
-            const imgModel = 'imagen-4.0-generate-001';
             
             try {
-                // Summary
-                const summaryRes = await fetchWithRetry(`${API_URL_BASE}${model}:generateContent?key=${API_KEY}`, {
+                // Summary Only
+                const summaryRes = await fetchWithRetry(`${API_URL_BASE}${model}:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -443,31 +436,18 @@
                         tools: [{ "google_search": {} }]
                     })
                 });
-                spotlightOutput.innerHTML = `<p class="text-slate-800">${summaryRes.candidates[0].content.parts[0].text}</p>`;
                 
-                spotlightButton.innerHTML = 'جاري توليد الصورة...';
-
-                // Image
-                const imgRes = await fetchWithRetry(`${API_URL_BASE}${imgModel}:predict?key=${API_KEY}`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ instances: { prompt: `A stunning photorealistic image of ${destination} tourism` }, parameters: { sampleCount: 1 } })
-                });
-                
-                const base64 = imgRes?.predictions?.[0]?.bytesBase64Encoded;
-                if(base64) {
-                    imageOutput.src = `data:image/png;base64,${base64}`;
-                    imageOutput.onload = () => {
-                        imagePlaceholder.classList.add('hidden');
-                        imageOutput.style.opacity = '1';
-                    };
+                if (summaryRes.candidates && summaryRes.candidates[0]) {
+                    spotlightOutput.innerHTML = `<p class="text-slate-800">${summaryRes.candidates[0].content.parts[0].text}</p>`;
                 } else {
-                    imagePlaceholder.innerHTML = '<span class="text-xs text-red-400">فشل الصورة</span>';
+                    spotlightOutput.innerHTML = `<p class="text-slate-500">لم يتم العثور على معلومات.</p>`;
                 }
+                
             } catch (e) {
-                spotlightOutput.innerHTML = '<p class="text-red-300">حدث خطأ.</p>';
+                console.error(e);
+                spotlightOutput.innerHTML = '<p class="text-red-300">حدث خطأ في الاتصال.</p>';
             } finally {
-                spotlightButton.innerHTML = '✨ جلب المعلومات والصور';
+                spotlightButton.innerHTML = '✨ جلب المعلومات';
                 spotlightButton.disabled = false;
             }
         }
@@ -509,7 +489,7 @@
             {
                 name_ar: "رحلة يلوا",
                 name_ku: "گەشتی يلوا (يالوفا)",
-                price: 30, // Updated to $25
+                price: 30, // Updated to $30
                 tag: "صحة 🧖‍♂️",
                 description_ar: "برنامج الرحلة:\n• زياره أحد اجمل اماكن السياحة في تركيا ، تحوي ينابيع حارّة تتميز باطلالتها الساحرة حيث يقع شاطئ يلوا على بحر مرمرة\n• والرحلة تكون برفقة مرشد سياحي يتكلم العربية\n• زيارة ينابيع يلوا الكبريتية الحارة\n• زيارة شلالات يلوا الرائعة صودوشان\n• وقت حر لتناول وجبة الغداء\n• تجربه ركوب الموتورات atv\n\n**ملاحظة هامة:** هذه الرحلة متوفرة فقط أيام السبت. تشمل المواصلات والغداء والمرشد السياحي من الفندق الى الفندق",
                 description_ku: "بەرنامەی گەشتەکە:\n• سەردانی یەکێک لە جوانترین شوێنە گەشتیارییەکان لە تورکیا، کە کانیاوی گەرمی تێدایە و بە دیمەنە دڵڕفێنەکەی جیا دەکرێتەوە کە کەناری یالۆڤا لەسەر دەریای مەڕمەڕەیە\n• گەشتەکە بە یاوەری ڕێبەرێکی گەشتیاری دەبێت کە بە عەرەبی قسە دەکات\n• سەردانی کانیاوە گۆگردییە گەرمەکانی یالۆڤا\n• سەردانی تاڤگە نایابەکانی یالۆڤا (سودوشەن)\n• کاتی ئازاد بۆ خواردنی ژەمی نیوەڕۆ\n• ئەزموونی سواربوونی ماتۆڕسکیل atv\n\n**تێبینی گرنگ:** ئەم گەشتە تەنها ڕۆژانی شەممە بەردەستە. گواستنەوە، نانخواردنی نیوەڕۆ، ڕێبەری گەشتیاری لە هۆتێل بۆ هۆتێل دەگرێتەوە"
@@ -517,7 +497,7 @@
             {
                 name_ar: "رحلة البوسفور الليلية (ليالي إسطنبول)",
                 name_ku: "گەشتی شەوانەی بەسفۆر (شەوەکانی ئیستەنبوڵ)",
-                price: 25, // Base price
+                price: 25, // Base price Updated
                 tag: "سهرة 🔥",
                 description_ar: "برنامج السهرة:\n• التوصيل من وإلى الفندق (بين 7:00 - 8:00 مساءً)\n• وقت السفينة: من 8:30 مساءً حتى 12:00 منتصف الليل\n• عشاء بوفيه مفتوح (شامل رسوم السفينة)\n• الفقرات الفنية: عراضة شامية، فقرة غوار الطوشة، سيف وترس، دبكات منوعة (لبنانية، عراقية، سورية)، تنورة مصرية، ودي جي.\n\n**خيارات السفن:**\n• **سفينة عربية:** 25$\n• **سفينة تركية:** 35$\n\n**ملاحظة هامة:** العرض لا يشمل المشروبات بأنواعها أو العصائر أو المكسرات.",
                 description_ku: "بەرنامەی ئاهەنگەکە:\n• گواستنەوە لە هۆتێل بۆ هۆتێل (لە نێوان 7:00 - 8:00 ئێوارە)\n• کاتی کەشتی: لە 8:30ی ئێوارە تا 12:00ی شەو\n• نانخواردنی ئێوارە بۆفێی کراوە (تێچووی کەشتی دەگرێتەوە)\n• بڕگە هونەرییەکان: عەڕازەی شامی، نمایشی غەوار تۆشە، شمشێر و قەڵغان، دەبکەی جۆراوجۆر (لوبنانی، عێراقی، سوری)، تەنورەی میسری، و دی جەی.\n\n**بژاردەکانی کەشتی:**\n• **کەشتی عەرەبی:** 25$\n• **کەشتی تورکی:** 35$\n\n**تێبینی گرنگ:** ئۆفەرەکە هیچ جۆرە خواردنەوەیەک، شەربەت، یان چەرەسات ناگرێتەوە."
@@ -528,7 +508,7 @@
             name: "عرض الـ 5 وجهات شاملة | پاکێجی 5 شوێنی گەشتیاری", // Updated title
             duration: "5 جولات يومية كاملة", 
             price: 75, 
-            individual_price: 155, // Recalculated sum: 20+20+30+25+30+25 = 120
+            individual_price: 120, // Updated to 120
             description_ar: `اكتشف قلب وروح إسطنبول والمناطق المحيطة بها مع عرضنا الأقوى على الإطلاق! استمتع بـ 5 جولات يومية كاملة تشمل أفضل الوجهات السياحية (صبنجة، بورصا، شيلا آغفا، جزر الأميرات، البوسفور الليلي) بالإضافة لرحلة يلوا الإضافية (إذا صادف يوم السبت). هذا العرض هو بوابتك لرحلة لا تُنسى. استفد من قيمة لا تُضاهى، حيث تبلغ التكلفة الإجمالية لهذه الجولات $120، لكننا نقدمها لك بسعر استثنائي يبلغ $75 فقط! لا تفوّت هذه الفرصة النادرة.`, 
             description_ku: `دڵ و ڕۆحی ئیستەنبوڵ و دەوروبەری بدۆزەرەوە بە بەهێزترین ئۆفەری ئێمە! چێژ لە 5 گەشتی تەواوی ڕۆژانە وەربگرە کە جوانترین شوێنە گەشتیارییەکان دەگرێتەوە (سابانجا، بورسە، شیلا ئاغڤا، دوورگە شازادەکان، بەسفۆری شەوانە) و گەشتی زیادەی یالۆڤا (ئەگەر شەممە بێت). ئەم ئۆفەرە دەروازەی تۆیە بۆ گەشتێکی لەبیرنەکراو. سوود لە بەهایەکی بێهاوتا وەربگرە، چونکە تێچووی گشتی ئەم گەشتانە $120ـە، بەڵام ئێمە بە نرخێکی زۆر تایبەت کە تەنها $75ـە پێشکەشی دەکەین! ئەم دەرفەتە دەگمەنە لەدەست مەدە.`, 
         };
@@ -671,5 +651,3 @@
     </script>
 </body>
 </html>
-
-
